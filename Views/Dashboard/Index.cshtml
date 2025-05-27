@@ -1,0 +1,87 @@
+@model List<TCUWatcher.API.Models.LiveEvent>
+@using TCUWatcher.API.Utils
+@inject IConfiguration Configuration
+@{
+    ViewData["Title"] = "Dashboard de Lives";
+    Layout = "_Layout";
+}
+
+<main class="container mx-auto px-4 py-6">
+    @if (ViewData["ErrorMessage"] != null)
+    {
+        <div class="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded" role="alert">
+            <strong class="font-bold">Erro!</strong>
+            <span class="block sm:inline">@ViewData["ErrorMessage"]</span>
+        </div>
+    }
+
+    <form method="get" action="/dashboard" class="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <input name="canal"
+               value="@ViewData["CanalFilter"]"
+               placeholder="Filtrar por canal (ID ou parte)"
+               class="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+        <select name="status"
+                class="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+            <option value="">Status (todos)</option>
+            <option value="online" selected="@(ViewData["StatusFilter"]?.ToString() == "online")">Online</option>
+            <option value="offline" selected="@(ViewData["StatusFilter"]?.ToString() == "offline")">Offline</option>
+        </select>
+        <button type="submit"
+                class="bg-indigo-600 text-white font-semibold rounded-lg px-6 py-2 hover:bg-indigo-700 transition">
+            Filtrar
+        </button>
+    </form>
+
+    @if (Model != null && Model.Any())
+    {
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            @foreach (var live in Model)
+            {
+                <div class="bg-white rounded-xl shadow hover:shadow-lg transition border border-gray-200 overflow-hidden">
+                    <div class="p-4">
+                        <div class="flex justify-between items-start">
+                            <a href="@live.Url"
+                               target="_blank"
+                               class="text-lg font-medium text-indigo-600 hover:underline flex-1 pr-2">
+                                @live.Title
+                            </a>
+                            <span class="flex items-center">
+                                @if (live.IsLive)
+                                {
+                                    <span class="w-3 h-3 bg-green-500 rounded-full pulse-live mr-2"></span>
+                                    <span class="text-green-600 font-semibold text-sm">Ao vivo</span>
+                                }
+                                else
+                                {
+                                    <span class="w-3 h-3 bg-red-500 rounded-full mr-2"></span>
+                                    <span class="text-red-600 font-semibold text-sm">Encerrada</span>
+                                }
+                            </span>
+                        </div>
+                        <p class="text-gray-500 text-sm mt-2">
+                            <span class="font-semibold">Iniciada:</span> @live.FormattedDate
+                        </p>
+                        @if (live.EndedAt.HasValue)
+                        {
+                             <p class="text-gray-500 text-sm mt-1">
+                                <span class="font-semibold">Encerrada:</span> @DateTimeUtils.FormatDateTime(live.EndedAt.Value, Configuration)
+                            </p>
+                        }
+                        <p class="text-gray-400 text-xs mt-1">
+                            <span class="font-semibold">Canal:</span> @live.ChannelId
+                        </p>
+                         <p class="text-gray-400 text-xs mt-1">
+                            <span class="font-semibold">MissCount:</span> @live.MissCount
+                        </p>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="py-12 text-center">
+            <p class="text-gray-500 text-lg">Nenhuma live encontrada com os filtros aplicados.</p>
+        </div>
+    }
+</main>

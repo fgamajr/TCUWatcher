@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - TCU Watcher</title>
+    <link href="https://cdn.tailwindcss.com/2.2.19/tailwind.min.css" rel="stylesheet">
+    <style>
+        @@keyframes pulse-live {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        .pulse-live {
+            animation: pulse-live 1.5s ease-in-out infinite;
+        }
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        main {
+            flex-grow: 1;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+    <header class="bg-white shadow sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-4 flex items-center justify-between">
+            <a asp-controller="Dashboard" asp-action="Index" class="text-2xl font-bold text-indigo-700">🔴 Lives TCU Watcher</a>
+            <nav>
+                <a asp-controller="Dashboard" asp-action="Index" class="text-gray-600 hover:text-indigo-700 ml-4">Dashboard</a>
+                <a asp-controller="Info" asp-action="GetStatus" class="text-gray-600 hover:text-indigo-700 ml-4">Status API</a>
+                <a href="/swagger" class="text-gray-600 hover:text-indigo-700 ml-4">API Docs</a>
+            </nav>
+        </div>
+    </header>
+
+    @RenderBody()
+
+    <footer class="bg-white mt-12 py-4 shadow-inner">
+        <div class="container mx-auto text-center text-gray-500 text-sm">
+            &copy; @DateTime.Now.Year TCU Watcher. Todos os direitos reservados.
+        </div>
+    </footer>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

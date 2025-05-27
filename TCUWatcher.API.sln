@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TCUWatcher.API", "TCUWatcher.API.csproj", "{65D459DA-F263-65C9-C810-0F409122BFD9}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{65D459DA-F263-65C9-C810-0F409122BFD9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{65D459DA-F263-65C9-C810-0F409122BFD9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{65D459DA-F263-65C9-C810-0F409122BFD9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{65D459DA-F263-65C9-C810-0F409122BFD9}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {BE60A931-60C5-4288-8A3C-F7BF314E1A32}
+	EndGlobalSection
+EndGlobal

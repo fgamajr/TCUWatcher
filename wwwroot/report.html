@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+ <head>
+ <meta charset="UTF-8" />
+ <title>Relatório TCU</title>
+ <script src="https://cdn.tailwindcss.com"></script>
+ </head>
+ <body class="bg-gray-100">
+ <div class="max-w-7xl mx-auto py-10 px-6">
+ <header class="mb-10">
+ <h1 class="text-4xl font-bold text-gray-800 mb-2">
+ Relatório da Sessão TCU
+ </h1>
+ <div id="session-info" class="text-gray-600 leading-relaxed"></div>
+ </header>
+
+ <section>
+ <h2 class="text-3xl font-semibold text-gray-800 mb-6">Processos</h2>
+
+ <div class="mb-10">
+ <h3 class="text-2xl font-semibold text-blue-600 mb-4">
+ Com Determinação para Segecex
+ </h3>
+ <div class="space-y-6" id="segecex-processes"></div>
+ </div>
+
+ <div>
+ <h3 class="text-2xl font-semibold text-gray-800 mb-4">
+ Sem Determinação para Segecex
+ </h3>
+ <div class="space-y-6" id="no-segecex-processes"></div>
+ </div>
+ </section>
+ </div>
+
+ <script>
+ const reportText = `COLE_O_TEXTO_DO_RELATORIO_AQUI_SE_FOR_ESTATICO_NO_HTML_SENAO_AJUSTE_PARA_CARREGAR_DINAMICAMENTE`;
+
+ function parseReport(text) {
+ const processes = text
+ .split("**************************************************\n")
+ .slice(1);
+ const sessionInfo = text.split(
+ "**************************************************\n"
+ )[0];
+
+ return { processes, sessionInfo };
+ }
+
+ function displayProcesses(processes) {
+ const segecexProcessesDiv =
+ document.getElementById("segecex-processes");
+ const noSegecexProcessesDiv = document.getElementById(
+ "no-segecex-processes"
+ );
+
+ processes.forEach((processText) => {
+ const processData = processText.trim().split("\n");
+
+ const determinacaoIndex = processData.findIndex((line) =>
+ line.includes("Há determinação para Segecex?")
+ );
+ const processInfo =
+ determinacaoIndex !== -1
+ ? processData.slice(0, determinacaoIndex).join("<br>")
+ : processData.join("<br>");
+
+ const hasDeterminacao =
+ determinacaoIndex !== -1 &&
+ processData[determinacaoIndex].includes("Sim");
+ const determinacaoContent = hasDeterminacao
+ ? processData[determinacaoIndex + 1].replace(
+ "Determinação para Segecex: ",
+ ""
+ )
+ : "";
+
+ const processDiv = document.createElement("div");
+ processDiv.classList.add(
+ "border",
+ "border-gray-300",
+ "rounded-lg",
+ "p-6",
+ "bg-white",
+ "shadow"
+ );
+
+ processDiv.innerHTML = `
+ <div class="text-lg font-semibold text-gray-800 mb-2">${
+ processData[0]
+ }</div>
+ <div class="text-gray-600 leading-relaxed mb-4">${processInfo
+ .split("<br>")
+ .slice(1)
+ .join("<br>")}</div>
+ ${
+ hasDeterminacao
+ ? `<div class="bg-blue-50 border-l-4 border-blue-500 p-4">
+ <p class="text-blue-700 font-semibold">Há determinação para Segecex: Sim</p>
+ <p class="text-blue-700 mt-1">${determinacaoContent}</p>
+ </div>`
+ : `<p class="text-gray-500 font-semibold">Há determinação para Segecex: Não</p>`
+ }
+ `;
+
+ if (hasDeterminacao) {
+ segecexProcessesDiv.appendChild(processDiv);
+ } else {
+ noSegecexProcessesDiv.appendChild(processDiv);
+ }
+ });
+ }
+
+ function displaySessionInfo(info) {
+ const sessionInfoDiv = document.getElementById("session-info");
+ sessionInfoDiv.innerHTML = info.replace(/\n/g, "<br>");
+ }
+
+ // Apenas execute se reportText for preenchido
+ if(reportText && reportText.trim() !== 'COLE_O_TEXTO_DO_RELATORIO_AQUI_SE_FOR_ESTATICO_NO_HTML_SENAO_AJUSTE_PARA_CARREGAR_DINAMICAMENTE' && reportText.trim() !== '') {
+    const parsedReport = parseReport(reportText);
+    displaySessionInfo(parsedReport.sessionInfo);
+    displayProcesses(parsedReport.processes);
+ } else {
+    document.getElementById("session-info").innerHTML = "<p>Conteúdo do relatório não carregado.</p>";
+ }
+ </script>
+ </body>
+</html>

@@ -1,0 +1,6 @@
+@TCUWatcher.API_HostAddress = http://localhost:5195
+
+GET {{TCUWatcher.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

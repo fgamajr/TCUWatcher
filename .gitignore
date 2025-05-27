@@ -1,0 +1,60 @@
+# Dependencies
+**/[Bb]in/
+**/[Oo]bj/
+**/packages/
+**/node_modules/
+# Temp files
+*.tmp
+*.TMP
+*.temp
+*.TEMP
+# Visual Studio / Rider / VS Code specific
+.vs/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+# Build results
+[Dd]ebug/
+[Rr]elease/
+# Rider
+.idea/
+# Mac
+.DS_Store
+# User-specific files (often created by IDEs)
+*.resharper
+*.ャp/
+# Secrets / Config files that should not be committed
+# Se appsettings.json contiver segredos REAIS, considere esta linha.
+# Caso contrário, para desenvolvimento, é comum versioná-lo e usar User Secrets ou variáveis de ambiente em produção.
+# appsettings.json # DESCOMENTE SE VOCÊ NÃO QUER QUE appsettings.json VÁ PARA O REPOSITÓRIO PÚBLICO.
+appsettings.*.json # Permite appsettings.json, mas ignora appsettings.Development.json, appsettings.Production.json etc. se você preferir
+!appsettings.template.json # Se você usar um template para appsettings
+
+# User Secrets - O ID geralmente está no .csproj
+# e os arquivos ficam fora da pasta do projeto.
+# Mas se por acaso algum arquivo de segredo estiver localmente:
+secrets.json
+secrets.xml
+
+# Environment variables file
+.env
+
+# Rider specific
+#.idea/
+# .idea/.idea.TCUWatcher.API/.idea/
+
+# JetBrains Rider
+.idea*/
+*PROJECT_FOLDER_NAME*.iml
+modules.xml
+*.iws
+
+# Arquivos de log
+*.log
+logs/
+
+# Arquivos de cache e temporários do .NET
+*.nuget.props
+*.nuget.targets
