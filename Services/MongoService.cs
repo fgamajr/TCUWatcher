@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration; // Essencial para IConfiguration
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Options; // <<< ADICIONE ESTA LINHA
 
 namespace TCUWatcher.API.Services;
 
@@ -12,6 +13,7 @@ public class MongoService : IMongoService
 {
     private readonly IMongoCollection<LiveEvent> _liveEventsCollection;
     private readonly IMongoCollection<MonitoringWindow> _scheduleCollection;
+    private readonly IMongoCollection<AppConfiguration> _appConfigCollection; // <<< NOVA COLEÇÃO
     private readonly ILogger<MongoService> _logger;
     private readonly MongoClient _mongoClient;
 
@@ -20,54 +22,44 @@ public class MongoService : IMongoService
     // Se você quiser continuar usando IOptions para os nomes de database/coleção não secretos,
     // você pode reintroduzir IOptions<MongoDbSettings> no construtor e mesclar as abordagens.
     // Por simplicidade, vamos pegar tudo de IConfiguration aqui.
-    private const string DefaultDatabaseName = "tcu_monitor";
-    private const string DefaultLiveEventsCollectionName = "live_events";
-    private const string DefaultScheduleCollectionName = "monitoring_schedule";
+    public class MongoDbSettings
+    {
+        public string ConnectionString { get; set; } = null!;
+        public string DatabaseName { get; set; } = null!;
+        public string CollectionName { get; set; } = null!;
+        public string ScheduleCollectionName { get; set; } = null!;
+        public string AppConfigCollectionName { get; set; } = null!; // <<< NOVA PROPRIEDADE
+    }
 
 
-    public MongoService(ILogger<MongoService> logger, IConfiguration configuration)
+    public MongoService(IOptions<MongoDbSettings> mongoDbSettings, ILogger<MongoService> logger)
     {
         _logger = logger;
-
-        string? connectionString = configuration["MongoDb:ConnectionString"];
-        string databaseName = configuration.GetValue<string>("MongoDb:DatabaseName") ?? DefaultDatabaseName;
-        string liveEventsCollectionName = configuration.GetValue<string>("MongoDb:CollectionName") ?? DefaultLiveEventsCollectionName;
-        string scheduleCollectionName = configuration.GetValue<string>("MongoDb:ScheduleCollectionName") ?? DefaultScheduleCollectionName;
-
-        _logger.LogInformation("MongoService Initializing with Configuration:");
-        _logger.LogInformation(" > ConnectionString (from config): {ConnStr}", connectionString); // Log para ver o que foi pego
-        _logger.LogInformation(" > DatabaseName: {DbName}", databaseName);
-        _logger.LogInformation(" > LiveEventsCollectionName: {LiveCol}", liveEventsCollectionName);
-        _logger.LogInformation(" > ScheduleCollectionName: {SchedCol}", scheduleCollectionName);
-
-        if (string.IsNullOrEmpty(connectionString) || connectionString.StartsWith("DEFINIR_VIA"))
-        {
-            _logger.LogCritical("MongoService: ConnectionString inválida ou não resolvida: '{ConnStr}'", connectionString);
-            throw new MongoConfigurationException($"ConnectionString inválida ou não resolvida: '{connectionString}'. Verifique User Secrets ou variáveis de ambiente.");
-        }
-
         try
         {
-            _mongoClient = new MongoClient(connectionString);
-            var mongoDatabase = _mongoClient.GetDatabase(databaseName);
-            _liveEventsCollection = mongoDatabase.GetCollection<LiveEvent>(liveEventsCollectionName);
-            _scheduleCollection = mongoDatabase.GetCollection<MonitoringWindow>(scheduleCollectionName);
-            _logger.LogInformation("MongoDB client initialized successfully. Database: '{DatabaseName}', LiveEvents Collection: '{LiveCol}', Schedule Collection: '{SchedCol}'.",
-                                   databaseName, liveEventsCollectionName, scheduleCollectionName);
+            var settings = mongoDbSettings.Value;
+            _mongoClient = new MongoClient(settings.ConnectionString);
+            var mongoDatabase = _mongoClient.GetDatabase(settings.DatabaseName);
+            _liveEventsCollection = mongoDatabase.GetCollection<LiveEvent>(settings.CollectionName);
+            _scheduleCollection = mongoDatabase.GetCollection<MonitoringWindow>(settings.ScheduleCollectionName);
+            _appConfigCollection = mongoDatabase.GetCollection<AppConfiguration>(settings.AppConfigCollectionName); // <<< INICIALIZA NOVA COLEÇÃO
+
+            _logger.LogInformation("MongoDB client initialized. Live Events Collection: '{LiveEventsCol}'. Schedule Collection: '{ScheduleCol}'. App Config Collection: '{AppConfigCol}'.",
+                                   settings.CollectionName, settings.ScheduleCollectionName, settings.AppConfigCollectionName);
         }
         catch (MongoConfigurationException ex)
         {
-            _logger.LogCritical(ex, "Failed to initialize MongoDB client due to configuration error. Connection String USADA: {ConnectionString}", connectionString);
+            _logger.LogCritical(ex, "Failed to initialize MongoDB client due to configuration error. Connection String: {ConnectionString}", mongoDbSettings.Value.ConnectionString);
             throw;
         }
         catch (MongoConnectionException ex)
         {
-            _logger.LogCritical(ex, "Failed to connect to MongoDB server. Connection String USADA: {ConnectionString}. Please ensure the server is running and accessible.", connectionString);
+            _logger.LogCritical(ex, "Failed to connect to MongoDB server at {ConnectionString}. Please ensure the server is running and accessible.", mongoDbSettings.Value.ConnectionString);
             throw;
         }
         catch (Exception ex)
         {
-            _logger.LogCritical(ex, "An unexpected error occurred during MongoDB client initialization. Connection String USADA: {ConnectionString}", connectionString);
+            _logger.LogCritical(ex, "An unexpected error occurred during MongoDB client initialization.");
             throw;
         }
     }
@@ -198,6 +190,51 @@ public class MongoService : IMongoService
         {
             _logger.LogError(ex, "An unexpected error occurred while fetching active monitoring windows.");
             return new List<MonitoringWindow>();
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<AppConfiguration?> GetAppConfigurationAsync()
+    {
+        try
+        {
+            // Busca o documento de configuração global pelo nome fixo
+            return await _appConfigCollection.Find(c => c.ConfigName == "global_app_settings").FirstOrDefaultAsync().ConfigureAwait(false);
+        }
+        catch (MongoException ex)
+        {
+            _logger.LogError(ex, "Error fetching app configuration from MongoDB.");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An unexpected error occurred while fetching app configuration.");
+            return null;
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task SaveAppConfigurationAsync(AppConfiguration config)
+    {
+        try
+        {
+            // Usa ReplaceOne com IsUpsert = true para inserir se não existir, ou atualizar se existir
+            await _appConfigCollection.ReplaceOneAsync(
+                c => c.ConfigName == config.ConfigName,
+                config,
+                new ReplaceOptions { IsUpsert = true }
+            ).ConfigureAwait(false);
+            _logger.LogInformation("App configuration saved/updated in MongoDB.");
+        }
+        catch (MongoException ex)
+        {
+            _logger.LogError(ex, "Error saving app configuration to MongoDB.");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An unexpected error occurred while saving app configuration.");
+            throw;
         }
     }
 }
