@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
 
+
 var builder = WebApplication.CreateBuilder(args);
 
 // 1. Configuration
@@ -23,8 +24,14 @@ builder.Configuration.AddEnvironmentVariables();
 
 // 2. Logging
 builder.Logging.ClearProviders();
-builder.Logging.AddConsole();
-builder.Logging.AddDebug();
+builder.Logging.AddSimpleConsole(options => // Use AddSimpleConsole or another specific formatter
+{
+    options.TimestampFormat = "HH:mm:ss dd/MM/yyyy ";
+    options.IncludeScopes = true; // Optional: if you use logging scopes
+    // Other options like options.SingleLine = true; can also be set here
+});
+builder.Logging.AddDebug(); // The Debug logger has limited formatting options
+
 builder.Logging.AddFilter("TCUWatcher.API", LogLevel.Information);
 builder.Logging.AddFilter("Microsoft.AspNetCore", LogLevel.Warning);
 builder.Logging.AddFilter("Microsoft.Hosting.Lifetime", LogLevel.Information);
@@ -53,9 +60,17 @@ builder.Services.AddSingleton<IYouTubeService, YouTubeService>();
 builder.Services.AddSingleton<ISyncService, SyncService>();
 builder.Services.AddSingleton<IMonitoringScheduleService, MonitoringScheduleService>();
 
+// Testing Title Parsing Services
+builder.Services.AddSingleton<ITitleParserService, HybridTitleParserService>();
+
 // >>> REGISTER THE NEW SERVICES FOR SNAPSHOTTING <<<
 builder.Services.AddSingleton<IPhotographerService, FfmpegYtDlpPhotographerService>();
 builder.Services.AddSingleton<IStorageService, LocalStorageService>();
+
+// Parser de Títulos
+builder.Services.AddHostedService<TitleProcessingService>();
+builder.Services.AddSingleton<ITitleParserService, HybridTitleParserService>();
+
 
 // Serviços de Background Agendados
 builder.Services.AddHostedService<SyncSchedulerHostedService>();

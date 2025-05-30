@@ -85,4 +85,24 @@ public class LiveEvent
     // [BsonIndexKeys(new string[] { nameof(FileHash) })] // <<<< REMOVE THIS LINE
     public string? FileHash { get; set; }
 
+    [BsonElement("isTitleProcessed")]
+    [JsonPropertyName("isTitleProcessed")]
+    public bool IsTitleProcessed { get; set; } = false;
+
+    [BsonElement("parsedColegiate")]
+    [JsonPropertyName("parsedColegiate")]
+    [BsonIgnoreIfNull]
+    public string? ParsedColegiate { get; set; }
+
+    [BsonElement("parsedSessionType")]
+    [JsonPropertyName("parsedSessionType")]
+    [BsonIgnoreIfNull]
+    public string? ParsedSessionType { get; set; }
+
+    [BsonElement("parsedSessionDate")]
+    [JsonPropertyName("parsedSessionDate")]
+    [BsonIgnoreIfNull]
+    [BsonDateTimeOptions(Kind = DateTimeKind.Utc)] // Store date as UTC if converting
+    public DateTime? ParsedSessionDate { get; set; }
+
 }
