@@ -58,3 +58,11 @@ logs/
 # Arquivos de cache e temporários do .NET
 *.nuget.props
 *.nuget.targets
+
+# Generated media files from snapshots and audio extraction
+TCU_Snapshots/
+
+# Staging directory for raw video uploads
+uploaded_videos_staging/ 
+# (Use the actual name of your staging directory if it's different 
+# or if you configured it differently than the default example)
