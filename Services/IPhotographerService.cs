@@ -12,4 +12,8 @@ public interface IPhotographerService
     // We could also consider returning a Stream if memory usage is a concern for large images,
     // but byte[] might be simpler for inter-process communication if using external tools.
     // Task<Stream?> TakeSnapshotAsStreamAsync(string videoUrl, string liveEventId);
+
+    // In IPhotographerService.cs
+    Task<byte[]?> TakeSnapshotFromFileAsync(string localFilePath, string liveEventId, TimeSpan timeOffset);
+    Task<string?> ExtractFullAudioAsync(string localFilePath, string liveEventId, string outputAudioDirectory, string fileExtension); // Returns path to audio file or null
 }

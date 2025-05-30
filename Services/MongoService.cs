@@ -32,8 +32,9 @@ public class MongoService : IMongoService
     }
 
 
-    public MongoService(IOptions<MongoDbSettings> mongoDbSettings, ILogger<MongoService> logger)
+    public MongoService(IOptions<MongoDbSettings> mongoDbSettings, ILogger<MongoService> logger, IConfiguration configuration /* if needed */)
     {
+        // ... (your existing constructor logic to initialize _mongoClient, _liveEventsCollection, etc.) ...
         _logger = logger;
         try
         {
@@ -42,10 +43,13 @@ public class MongoService : IMongoService
             var mongoDatabase = _mongoClient.GetDatabase(settings.DatabaseName);
             _liveEventsCollection = mongoDatabase.GetCollection<LiveEvent>(settings.CollectionName);
             _scheduleCollection = mongoDatabase.GetCollection<MonitoringWindow>(settings.ScheduleCollectionName);
-            _appConfigCollection = mongoDatabase.GetCollection<AppConfiguration>(settings.AppConfigCollectionName); // <<< INICIALIZA NOVA COLEÇÃO
+            _appConfigCollection = mongoDatabase.GetCollection<AppConfiguration>(settings.AppConfigCollectionName);
 
             _logger.LogInformation("MongoDB client initialized. Live Events Collection: '{LiveEventsCol}'. Schedule Collection: '{ScheduleCol}'. App Config Collection: '{AppConfigCol}'.",
-                                   settings.CollectionName, settings.ScheduleCollectionName, settings.AppConfigCollectionName);
+                                settings.CollectionName, settings.ScheduleCollectionName, settings.AppConfigCollectionName);
+
+            // Ensure indexes after collection is initialized
+            EnsureIndexesAsync().GetAwaiter().GetResult(); // Run synchronously in constructor for setup
         }
         catch (MongoConfigurationException ex)
         {
@@ -235,6 +239,85 @@ public class MongoService : IMongoService
         {
             _logger.LogError(ex, "An unexpected error occurred while saving app configuration.");
             throw;
+        }
+    }
+
+    public async Task EnsureIndexesAsync()
+    {
+        // Index for FileHash
+        var fileHashIndexKeys = Builders<LiveEvent>.IndexKeys.Ascending(x => x.FileHash);
+        var fileHashIndexModel = new CreateIndexModel<LiveEvent>(
+            fileHashIndexKeys, 
+            new CreateIndexOptions { Name = "FileHash_Index", Sparse = true } // Sparse is good if many docs won't have FileHash
+        );
+
+        try
+        {
+            await _liveEventsCollection.Indexes.CreateOneAsync(fileHashIndexModel);
+            _logger.LogInformation("Ensured index 'FileHash_Index' exists on 'live_events' collection for FileHash field.");
+        }
+        // Catch specific MongoDB command exceptions if the index already exists or has a name conflict.
+        // Error code 85: IndexOptionsConflict (trying to create an index with the same key but different options/name)
+        // Error code 86: IndexKeySpecsConflict (trying to create an index with the same name but different key specs)
+        catch (MongoCommandException ex) when (ex.Code == 85 || ex.Code == 86 || ex.ErrorMessage.ToLowerInvariant().Contains("already exists"))
+        {
+            _logger.LogInformation("Index 'FileHash_Index' already exists or options conflict (which is acceptable if it serves the purpose). Details: {ErrorMessage}", ex.ErrorMessage);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create index on FileHash for 'live_events' collection.");
+            // Depending on how critical this is, you might want to throw or handle differently.
+        }
+
+        // You can add other index creations here if needed in the future.
+        // Example for VideoId (ensure VideoId exists in your LiveEvent model):
+        // _logger.LogInformation("Ensuring 'VideoId_Index' exists on 'live_events' collection.");
+        // var videoIdIndexKeys = Builders<LiveEvent>.IndexKeys.Ascending(x => x.VideoId);
+        // var videoIdIndexModel = new CreateIndexModel<LiveEvent>(
+        //     videoIdIndexKeys, 
+        //     new CreateIndexOptions { Name = "VideoId_Index", Unique = false } // Set Unique = true if VideoId should be unique
+        // );
+        // try
+        // {
+        //     await _liveEventsCollection.Indexes.CreateOneAsync(videoIdIndexModel);
+        //     _logger.LogInformation("Ensured index 'VideoId_Index' exists on 'live_events' collection for VideoId field.");
+        // }
+        // catch (MongoCommandException ex) when (ex.Code == 85 || ex.Code == 86 || ex.ErrorMessage.ToLowerInvariant().Contains("already exists"))
+        // {
+        //     _logger.LogInformation("Index 'VideoId_Index' already exists or options conflict. Details: {ErrorMessage}", ex.ErrorMessage);
+        // }
+        // catch (Exception ex)
+        // {
+        //     _logger.LogError(ex, "Failed to create index on VideoId for 'live_events' collection.");
+        // }
+    }
+
+    public async Task<LiveEvent?> GetLiveEventByFileHashAsync(string fileHash)
+    {
+        if (string.IsNullOrWhiteSpace(fileHash)) // Basic validation
+        {
+            _logger.LogWarning("Attempted to fetch live event with null or empty fileHash.");
+            return null;
+        }
+
+        try
+        {
+            // It's good practice to ensure your LiveEvent model has an index on FileHash 
+            // in MongoDB for efficient querying.
+            _logger.LogDebug("Fetching live event by FileHash '{FileHash}' from MongoDB.", fileHash);
+            return await _liveEventsCollection.Find(x => x.FileHash == fileHash)
+                                            .FirstOrDefaultAsync()
+                                            .ConfigureAwait(false);
+        }
+        catch (MongoException ex) // Handles exceptions specific to MongoDB operations
+        {
+            _logger.LogError(ex, "MongoDB error fetching live event by FileHash '{FileHash}'.", fileHash);
+            return null; // Return null as the event could not be retrieved
+        }
+        catch (Exception ex) // Handles any other unexpected exceptions
+        {
+            _logger.LogError(ex, "An unexpected error occurred while fetching live event by FileHash '{FileHash}'.", fileHash);
+            return null; // Return null in case of other errors
         }
     }
 }

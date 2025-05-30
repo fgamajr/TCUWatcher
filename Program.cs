@@ -60,6 +60,7 @@ builder.Services.AddSingleton<IStorageService, LocalStorageService>();
 // Serviços de Background Agendados
 builder.Services.AddHostedService<SyncSchedulerHostedService>();
 builder.Services.AddHostedService<SnapshottingHostedService>();
+builder.Services.AddHostedService<ManualUploadProcessorService>();
 
 // Suporte a Controllers e Views (para o Dashboard)
 builder.Services.AddControllersWithViews()

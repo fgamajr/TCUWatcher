@@ -26,4 +26,8 @@ public interface IMongoService
     /// </summary>
     /// <param name="config">O objeto AppConfiguration a ser salvo.</param>
     Task SaveAppConfigurationAsync(AppConfiguration config);
+
+    Task<LiveEvent?> GetLiveEventByFileHashAsync(string fileHash);
+
+    Task EnsureIndexesAsync(); // New method
 }

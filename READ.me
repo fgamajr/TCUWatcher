@@ -1,0 +1,150 @@
+======================================
+TCUWatcher - Project Schema Recap
+======================================
+
+(appsettings.json) --configures--> [All Services, Controllers, Paths, Intervals, Keys]
+
+-------------------------------------------------
+Workflow 1: Live Event Detection & Auto-Snapshotting
+-------------------------------------------------
+[YouTube Platform]
+    |
+    --(Live Video Streams Update)
+    |
+    v
+[YouTubeService (IYouTubeService)]
+    |   ^   - Uses (YouTube API Key)
+    |   |   - Interacts with [MongoService] (to check existing, save new/update)
+    |   |
+    |   --(Returns: List of current Live Video Info: URL, Title, VideoId, StartedAt)
+    v
+[SyncService (ISyncService)]
+    |   1. Calls [YouTubeService] for current live streams.
+    |   2. Compares with DB, updates/creates (LiveEvent: IsLive=true/false, MissCount, etc.)
+    |      --> via [MongoService] --> <<MongoDB: live_events collection>>
+    |   3. If new live detected, calls [NotifierService] --> (Webhook: Placeholder URL)
+    |
+    ^
+[SyncSchedulerHostedService] --triggers_periodically (e.g., every 30 mins)--> [SyncService]
+    |
+    --(Reads AppConfiguration from <<MongoDB>> via [MongoService] for its own intervals)
+
+
+[SnapshottingHostedService] --triggers_periodically (e.g., every 1 min to check DB)
+    |
+    | 1. Queries <<MongoDB: live_events>> via [MongoService] for (LiveEvents where IsLive=true)
+    |
+    --> For each (Active LiveEvent from DB):
+        |
+        | Manages a snapshotting loop (e.g., every 10 seconds for this specific event)
+        |
+        |------> [IPhotographerService (FfmpegYtDlpPhotographerService)]
+        |           |
+        |           | 1. Input: (LiveEvent.Url), (LiveEvent.VideoId)
+        |           | 2. Uses (yt-dlp path), (ffmpeg path), (snapshot format config)
+        |           | 3. (yt-dlp -g LiveEvent.Url) --> (Actual Streamable URL)
+        |           | 4. (ffmpeg -i StreamableUrl -frames:v 1 ...) --> (Snapshot byte[])
+        |           |
+        |           ----returns-----> (Snapshot byte[] or null)
+        |
+        |------> [IStorageService (LocalStorageService)]
+                    |
+                    | 1. Input: (Snapshot byte[]), (LiveEvent.VideoId), (Timestamp), (File Extension)
+                    | 2. Uses (Storage:Local:BasePath config for snapshots)
+                    | 3. Saves snapshot --> <<File System: BasePath/VideoId/timestamp.ext>>
+                    |
+                    ----returns-----> (File Path or null)
+
+-------------------------------------------------
+Workflow 2: Manual Video Upload & Processing
+-------------------------------------------------
+[User/Admin (via API Client like curl/Postman)]
+    |
+    --(POST /api/uploads/video with {File, Title, VideoId})
+    |
+    v
+[UploadsController]
+    |   1. Receives (File, Title, VideoId from form).
+    |   2. Saves uploaded File --> <<File System: Storage:UploadStagingPath/guid.ext>> (filePathOnServer).
+    |   3. Calculates SHA256 hash of (filePathOnServer) --> (FileHash).
+    |   4. Calls [MongoService.GetLiveEventByFileHashAsync(FileHash)].
+    |       |
+    |       <--returns-- (ExistingMatchingLiveEvent or null)
+    |
+    --> If (ExistingMatchingLiveEvent is not null):
+    |   |   1. Logs "Duplicate file".
+    |   |   2. Deletes newly uploaded file from <<File System: UploadStagingPath>>.
+    |   |   3. Returns HTTP 409 Conflict response to User/Admin.
+    |
+    --> If (New File, no hash match):
+        |   1. Creates (New LiveEvent object: Title, VideoId, IsManualUpload=true, Status=Pending,
+        |      LocalFilePath=filePathOnServer, FileHash, UploadedAt, IsLive=false).
+        |   2. Saves (New LiveEvent) --> <<MongoDB: live_events>> via [MongoService].
+        |   3. Returns HTTP 202 Accepted response to User/Admin.
+
+
+[ManualUploadProcessorService] --triggers_periodically (e.g., every 1 min to check DB)
+    |
+    | 1. Queries <<MongoDB: live_events>> via [MongoService] for
+    |    (LiveEvents where IsManualUpload=true AND Status=Pending).
+    |
+    --> For each (Pending ManualUpload LiveEvent):
+        |   1. Updates (LiveEvent.Status=Processing) via [MongoService].
+        |   2. Gets (LiveEvent.LocalFilePath).
+        |   3. (Future: Uses ffprobe to get Video Duration; ffprobe often comes with ffmpeg).
+        |
+        |   4. Snapshot Extraction Loop (from 0 to VideoDuration, every N seconds):
+        |   |   ------> [IPhotographerService (FfmpegYtDlpPhotographerService)]
+        |   |   |           |
+        |   |   |           | 1. Input: (LocalFilePath), (LiveEvent.VideoId), (Current TimeOffset in video)
+        |   |   |           | 2. (ffmpeg -ss TimeOffset -i LocalFilePath -frames:v 1 ...) --> (Snapshot byte[])
+        |   |   |           |
+        |   |   |           ----returns-----> (Snapshot byte[] or null)
+        |   |   |
+        |   |   ------> [IStorageService (LocalStorageService)]
+        |   |               |
+        |   |               | 1. Input: (Snapshot byte[]), (LiveEvent.VideoId), (Timestamp), (File Extension)
+        |   |               | 2. Saves snapshot --> <<File System: BasePath/VideoId/timestamp.ext>>
+        |
+        |   5. Full Audio Extraction:
+        |   |   ------> [IPhotographerService (FfmpegYtDlpPhotographerService)]
+        |   |   |           |
+        |   |   |           | 1. Input: (LocalFilePath), (LiveEvent.VideoId), (Output Directory = BasePath/VideoId), (Audio File Extension)
+        |   |   |           | 2. (ffmpeg -i LocalFilePath -vn -c:a aac ... OutputDirectory/audio_VideoId.ext)
+        |   |   |           |
+        |   |   |           ----returns-----> (Full Audio File Path or null)
+        |   |   |           *(Note: PhotographerService currently writes audio file directly to final path)*
+        |
+        |   6. Updates (LiveEvent.Status=CompletedSuccessfully or Failed, +ErrorMessage if Failed) via [MongoService].
+        |   7. (Optional) Deletes original file from <<File System: UploadStagingPath>> if (LiveEvent.LocalFilePath) is cleared.
+
+-------------------------------------------------
+Core Services & Data Stores
+-------------------------------------------------
+[MongoService (IMongoService)]
+    |   - Manages DB operations for LiveEvent, MonitoringWindow, AppConfiguration.
+    |   - Methods: CreateLiveEventAsync, GetLiveEventByFileHashAsync, FindAsync, EnsureIndexesAsync, etc.
+    |   --> Interacts with <<MongoDB>>
+
+<<MongoDB>>
+    - `live_events` collection:
+        (Id, Title, VideoId, Url, StartedAt, EndedAt, IsLive, MissCount,
+         IsManualUpload, Status, FileHash, LocalFilePath, UploadedAt, ProcessingErrorMessage)
+    - `monitoring_schedule` collection
+    - `app_configurations` collection (for dynamic settings like intervals, miss counts)
+
+<<File System>>
+    - Staging Uploads: (Configured `Storage:UploadStagingPath`) -> e.g., /home/fgama/tcuwatcher_data/video_staging/
+        - e.g., guid.mp4 (temporary raw uploads)
+    - Processed Snapshots/Audio: (Configured `Storage:Local:BasePath`) -> e.g., TCU_Snapshots/
+        - Structure: VideoId/timestamp.png
+        - Structure: VideoId/audio_VideoId.m4a
+
+-------------------------------------------------
+Future / To Be Implemented
+-------------------------------------------------
+- "Summarizing Procedure" (would consume snapshots & audio from <<File System>> and metadata from <<MongoDB>>)
+- Cloud Storage (alternative `IStorageService` implementation)
+- Advanced Retry Logic (e.g., using Polly for robustness in services)
+- UI for Manual Uploads
+- Getting video duration using `ffprobe` in `ManualUploadProcessorService`
