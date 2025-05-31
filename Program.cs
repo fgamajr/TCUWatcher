@@ -8,7 +8,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
-
+using System; // For TimeSpan
+using System.Net.Http; // For DefaultRequestHeaders
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,13 +25,12 @@ builder.Configuration.AddEnvironmentVariables();
 
 // 2. Logging
 builder.Logging.ClearProviders();
-builder.Logging.AddSimpleConsole(options => // Use AddSimpleConsole or another specific formatter
+builder.Logging.AddSimpleConsole(options => // Use AddSimpleConsole for TimestampFormat
 {
     options.TimestampFormat = "HH:mm:ss dd/MM/yyyy ";
-    options.IncludeScopes = true; // Optional: if you use logging scopes
-    // Other options like options.SingleLine = true; can also be set here
+    // options.IncludeScopes = true; // Optional: if you use logging scopes
 });
-builder.Logging.AddDebug(); // The Debug logger has limited formatting options
+builder.Logging.AddDebug(); 
 
 builder.Logging.AddFilter("TCUWatcher.API", LogLevel.Information);
 builder.Logging.AddFilter("Microsoft.AspNetCore", LogLevel.Warning);
@@ -42,8 +42,7 @@ builder.Logging.AddFilter("Microsoft.Hosting.Lifetime", LogLevel.Information);
 builder.Services.Configure<MongoDbSettings>(builder.Configuration.GetSection("MongoDb"));
 builder.Services.AddSingleton<IMongoService, MongoService>();
 
-// HttpClientFactory
-builder.Services.AddHttpClient(); 
+// HttpClientFactory - Define named clients once
 builder.Services.AddHttpClient("YouTube", client =>
 {
     client.Timeout = TimeSpan.FromSeconds(20);
@@ -53,29 +52,30 @@ builder.Services.AddHttpClient("Notifier", client =>
 {
     client.Timeout = TimeSpan.FromSeconds(15);
 });
+builder.Services.AddHttpClient("OpenAI", client =>
+{
+    client.Timeout = TimeSpan.FromMinutes(5); // Transcription can take time for long audio
+});
+// A general HttpClient can also be resolved if AddHttpClient() was called without a name,
+// but usually for external APIs, named or typed clients are preferred.
 
 // Serviços da Aplicação
 builder.Services.AddSingleton<INotifierService, NotifierService>();
 builder.Services.AddSingleton<IYouTubeService, YouTubeService>();
 builder.Services.AddSingleton<ISyncService, SyncService>();
 builder.Services.AddSingleton<IMonitoringScheduleService, MonitoringScheduleService>();
-
-// Testing Title Parsing Services
-builder.Services.AddSingleton<ITitleParserService, HybridTitleParserService>();
-
-// >>> REGISTER THE NEW SERVICES FOR SNAPSHOTTING <<<
-builder.Services.AddSingleton<IPhotographerService, FfmpegYtDlpPhotographerService>();
-builder.Services.AddSingleton<IStorageService, LocalStorageService>();
-
-// Parser de Títulos
-builder.Services.AddHostedService<TitleProcessingService>();
-builder.Services.AddSingleton<ITitleParserService, HybridTitleParserService>();
-
+builder.Services.AddSingleton<ITitleParserService, HybridTitleParserService>(); // For Title Parsing
+builder.Services.AddSingleton<IPhotographerService, FfmpegYtDlpPhotographerService>(); // For Snapshots/Audio Extraction
+builder.Services.AddSingleton<IStorageService, LocalStorageService>(); // For Storing Snapshots
+builder.Services.AddSingleton<IOcrProcessExtractorService, TesseractOcrProcessExtractorService>(); // For OCR
+builder.Services.AddSingleton<ITranscriptionService, OpenAiTranscriptionService>(); // For Audio Transcription
 
 // Serviços de Background Agendados
 builder.Services.AddHostedService<SyncSchedulerHostedService>();
 builder.Services.AddHostedService<SnapshottingHostedService>();
 builder.Services.AddHostedService<ManualUploadProcessorService>();
+builder.Services.AddHostedService<TitleProcessingService>(); // Ensure this is correctly defined and in the right namespace
+builder.Services.AddHostedService<SessionSummarizationService>(); 
 
 // Suporte a Controllers e Views (para o Dashboard)
 builder.Services.AddControllersWithViews()

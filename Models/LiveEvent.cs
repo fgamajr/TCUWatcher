@@ -105,4 +105,29 @@ public class LiveEvent
     [BsonDateTimeOptions(Kind = DateTimeKind.Utc)] // Store date as UTC if converting
     public DateTime? ParsedSessionDate { get; set; }
 
+        [BsonElement("fullSessionTranscription")]
+    [BsonIgnoreIfNull]
+    public string? FullSessionTranscription { get; set; }
+
+    [BsonElement("judgedProcesses")]
+    // Ensure an empty list is initialized if you access it directly before populating
+    public List<JudgedProcessInfo> JudgedProcesses { get; set; } = new List<JudgedProcessInfo>();
+
+    [BsonElement("summaryStatus")] 
+    [BsonRepresentation(BsonType.String)] // Using existing ProcessingStatus enum
+    [BsonIgnoreIfNull]
+    public ProcessingStatus? SummaryStatus { get; set; } // Tracks Pending, Processing, CompletedSuccessfully, Failed for summarization
+
+    [BsonElement("summaryProcessingStartedAt")]
+    [BsonIgnoreIfNull]
+    public DateTime? SummaryProcessingStartedAt { get; set; }
+
+    [BsonElement("summaryErrorMessage")]
+    [BsonIgnoreIfNull]
+    public string? SummaryErrorMessage { get; set; }
+
+    [BsonElement("summaryRetryCount")]
+    [BsonIgnoreIfNull]
+    public int? SummaryRetryCount { get; set; }
+
 }

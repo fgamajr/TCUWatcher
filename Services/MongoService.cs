@@ -320,4 +320,66 @@ public class MongoService : IMongoService
             return null; // Return null in case of other errors
         }
     }
+
+    public async Task<LiveEvent?> ClaimNextPendingSummaryEventAsync(FilterDefinition<LiveEvent> filter, UpdateDefinition<LiveEvent> update, FindOneAndUpdateOptions<LiveEvent, LiveEvent>? options = null)
+    {
+        try
+        {
+            return await _liveEventsCollection.FindOneAndUpdateAsync(filter, update, options);
+        }
+        catch (MongoException ex)
+        {
+            _logger.LogError(ex, "MongoDB error during ClaimNextPendingSummaryEventAsync (FindOneAndUpdate).");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error during ClaimNextPendingSummaryEventAsync.");
+            return null;
+        }
+    }
+
+    public async Task<LiveEvent?> GetLiveEventByIdAsync(string id)
+    {
+        if (string.IsNullOrWhiteSpace(id)) return null;
+        try
+        {
+            return await _liveEventsCollection.Find(x => x.Id == id).FirstOrDefaultAsync();
+        }
+        catch (MongoException ex)
+        {
+            _logger.LogError(ex, "MongoDB error fetching LiveEvent by ID '{Id}'.", id);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error fetching LiveEvent by ID '{Id}'.", id);
+            return null;
+        }
+    }
+
+    public async Task<LiveEvent?> FindOneAndUpdateLiveEventAsync(FilterDefinition<LiveEvent> filter, UpdateDefinition<LiveEvent> update, FindOneAndUpdateOptions<LiveEvent, LiveEvent>? options = null)
+{
+    try
+    {
+        // If options are null, the driver will use defaults.
+        // Ensure options passed from SessionSummarizationService (like ReturnDocument.After) are correctly handled.
+        var findOptions = options ?? new FindOneAndUpdateOptions<LiveEvent, LiveEvent> 
+        { 
+            ReturnDocument = ReturnDocument.After // Default to returning the updated document if not specified
+        };
+
+        return await _liveEventsCollection.FindOneAndUpdateAsync(filter, update, findOptions);
+    }
+    catch (MongoException ex)
+    {
+        _logger.LogError(ex, "MongoDB error during FindOneAndUpdateLiveEventAsync.");
+        return null;
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Unexpected error during FindOneAndUpdateLiveEventAsync.");
+        return null;
+    }
+}
 }

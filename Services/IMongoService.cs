@@ -3,6 +3,7 @@ using MongoDB.Driver;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
+
 namespace TCUWatcher.API.Services;
 
 public interface IMongoService
@@ -30,4 +31,10 @@ public interface IMongoService
     Task<LiveEvent?> GetLiveEventByFileHashAsync(string fileHash);
 
     Task EnsureIndexesAsync(); // New method
+
+    Task<LiveEvent?> FindOneAndUpdateLiveEventAsync(FilterDefinition<LiveEvent> filter, UpdateDefinition<LiveEvent> update, FindOneAndUpdateOptions<LiveEvent, LiveEvent>? options = null);
+
+    // >>> New methods for SessionSummarizationService <<<
+    Task<LiveEvent?> ClaimNextPendingSummaryEventAsync(FilterDefinition<LiveEvent> filter, UpdateDefinition<LiveEvent> update, FindOneAndUpdateOptions<LiveEvent, LiveEvent>? options = null);
+    Task<LiveEvent?> GetLiveEventByIdAsync(string id); // If you don't have a simple GetById already
 }

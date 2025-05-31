@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.8" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
 
     <PackageReference Include="MongoDB.Driver" Version="2.25.0" />
@@ -15,6 +16,18 @@
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.0" />
     <!-- <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="8.0.0" Condition="'' == 'Debug'" /> -->
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="8.0.0" Condition="'$(Configuration)' == 'Debug'" />
+    <PackageReference Include="Tesseract" Version="5.2.0" />
+    
+
+    <Content Include="tessdata/**/*.*"> 
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+
+    <None Include="/usr/lib/libleptonica.so.6.0.0">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <TargetPath>libleptonica-1.82.0.so</TargetPath>
+    </None>
+
     </ItemGroup>
 
 </Project>
