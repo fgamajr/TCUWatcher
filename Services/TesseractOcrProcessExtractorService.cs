@@ -148,6 +148,8 @@ namespace TCUWatcher.API.Services
                     {
                         using (var engine = new TesseractEngine(_tessDataPath, _ocrLanguage, _engineMode))
                         {
+                            _logger.LogWarning("Instanciando TesseractEngine em: " + _tessDataPath + ", arquivos em: " + Path.Combine(_tessDataPath, $"{_ocrLanguage}.traineddata"));
+                            _logger.LogDebug("OCR: Processing cropped image from {ImagePath} for event {EventId}", imagePath, liveEventIdForLogging);
                             engine.DefaultPageSegMode = _pageSegMode;
                             using (var pix = Pix.LoadFromMemory(croppedImageBytes))
                             {
